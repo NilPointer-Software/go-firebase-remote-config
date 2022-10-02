@@ -33,8 +33,12 @@ func (rc *RemoteConfig) Refresh() error {
 
 func (rc *RemoteConfig) Update() error {
 	if rc.client != nil {
-		_, err := rc.client.Update(rc)
-		return err
+		newConfig, err := rc.client.Update(rc)
+		if err != nil {
+			return err
+		}
+		*rc = *newConfig
+		return nil
 	}
 	return fmt.Errorf("no client attached")
 }
@@ -196,4 +200,13 @@ func (cv *ConditionalValues) UnmarshalJSON(data []byte) error {
 type ParameterGroup struct {
 	Description string               `json:"description"`
 	Parameters  map[string]Parameter `json:"parameters"`
+}
+
+type Rollback struct {
+	VersionNumber int64 `json:"versionNumber,string"`
+}
+
+type VersionPage struct {
+	Versions      []Version `json:"versions"`
+	NextPageToken string    `json:"nextPageToken"`
 }

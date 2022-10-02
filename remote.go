@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"google.golang.org/api/option"
 	"google.golang.org/api/transport"
+	"io"
 	"io/ioutil"
 	"net/http"
 )
@@ -46,7 +47,7 @@ func NewClient(ctx context.Context, opts ...option.ClientOption) (*RemoteConfigC
 
 func (rcc *RemoteConfigClient) Get() (*RemoteConfig, error) {
 	var config RemoteConfig
-	etag, err := rcc.doRequest("GET", "", &config, nil, nil)
+	etag, err := rcc.doRequest(request{method: "GET"}, &config)
 	if err != nil {
 		return nil, err
 	}
@@ -56,50 +57,132 @@ func (rcc *RemoteConfigClient) Get() (*RemoteConfig, error) {
 }
 
 func (rcc *RemoteConfigClient) Update(config *RemoteConfig) (*RemoteConfig, error) {
-	_, err := rcc.doRequest("PUT", "", config, config, &config.ETag)
+	var newConfig RemoteConfig
+	_, err := rcc.doRequest(request{
+		method: "PUT",
+		input:  config,
+		etag:   config.ETag,
+	}, &newConfig)
 	if err != nil {
 		return nil, err
 	}
-	config.client = rcc
-	return config, nil
+	newConfig.client = rcc
+	return &newConfig, nil
 }
 
-func (rcc *RemoteConfigClient) doRequest(method, call string, output any, input any, etag *string, try ...int) (string, error) {
-	if call != "" && call[0] != ':' {
-		call = ":" + call
+func (rcc *RemoteConfigClient) Rollback(version int64) (*RemoteConfig, error) {
+	var config RemoteConfig
+	rollback := Rollback{VersionNumber: version}
+	_, err := rcc.doRequest(request{
+		method: "POST",
+		call:   "rollback",
+		input:  rollback,
+	}, &config)
+	if err != nil {
+		return nil, err
 	}
-	var err error
-	var body []byte
-	if input != nil {
-		body, err = json.Marshal(input)
+	return &config, nil
+}
+
+func (rcc *RemoteConfigClient) ListAllVersions() ([]Version, error) {
+	var versions []Version
+	page, err := rcc.ListVersionsByPageToken("")
+	if err != nil {
+		return nil, err
+	}
+	versions = append(versions, page.Versions...)
+	for page.NextPageToken != "" {
+		page, err = rcc.ListVersionsByPageToken(page.NextPageToken)
 		if err != nil {
-			return "", nil
+			return nil, err
 		}
+		versions = append(versions, page.Versions...)
 	}
-	request, err := http.NewRequest(method, fmt.Sprintf("%s/%s/projects/%s/remoteConfig%s?alt=json&prettyPrint=false", rcc.endpoint, apiVersion, rcc.projectId, call), bytes.NewReader(body))
+	return versions, nil
+}
+
+func (rcc *RemoteConfigClient) ListVersionsByPageToken(pageToken string) (*VersionPage, error) {
+	var page VersionPage
+	_, err := rcc.doRequest(request{
+		method: "GET",
+		call:   "listVersions",
+		query: map[string]string{
+			"pageToken": pageToken,
+		},
+	}, &page)
+	if err != nil {
+		return nil, err
+	}
+	return &page, nil
+}
+
+// TODO: ListVersions all query
+
+type request struct {
+	method string
+	call   string
+	query  map[string]string
+	input  any
+	etag   string
+}
+
+func (r *request) data() (reader io.Reader) {
+	if r.input != nil {
+		data, err := json.Marshal(r.input)
+		if err != nil {
+			panic(err)
+		}
+		reader = bytes.NewReader(data)
+	}
+	return
+}
+
+func (r *request) queryString() (res string) {
+	for key, value := range r.query {
+		res += "&" + key + "=" + value
+	}
+	return
+}
+
+func (r *request) callString() string {
+	if r.call != "" {
+		return ":" + r.call
+	}
+	return ""
+}
+
+func (rcc *RemoteConfigClient) doRequest(r request, output any, try ...int) (string, error) { // TODO: Rewrite
+	url := fmt.Sprintf("%s/%s/projects/%s/remoteConfig%s?alt=json&prettyPrint=false%s",
+		rcc.endpoint,
+		apiVersion,
+		rcc.projectId,
+		r.callString(),
+		r.queryString(),
+	)
+	req, err := http.NewRequest(r.method, url, r.data())
 	if err != nil {
 		return "", err
 	}
-	request.Header.Set("User-Agent", "go-firebase-remote-config/v0")
-	if etag != nil {
-		request.Header.Set("If-Match", *etag)
+	req.Header.Set("User-Agent", "go-firebase-remote-config/v0")
+	if r.etag != "" {
+		req.Header.Set("If-Match", r.etag)
 	}
 
-	response, err := rcc.httpClient.Do(request)
+	response, err := rcc.httpClient.Do(req)
 	if err != nil {
 		return "", err
 	}
-	body, err = ioutil.ReadAll(response.Body)
+	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return "", err
 	}
 	if response.StatusCode != http.StatusOK {
 		if response.StatusCode == http.StatusConflict && len(try) == 0 {
-			newTag, err := rcc.doRequest("GET", "", nil, nil, nil)
+			r.etag, err = rcc.doRequest(request{method: "GET"}, nil)
 			if err != nil {
 				return "", err
 			}
-			return rcc.doRequest(method, call, output, input, &newTag, 1)
+			return rcc.doRequest(r, output, 1)
 		}
 		return "", fmt.Errorf("unexpected status code %s (%d)\n%s", response.Status, response.StatusCode, body)
 	}
