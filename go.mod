@@ -1,4 +1,4 @@
-module github.com/NilPointer-Software/go-firebase-remote-config
+module github.com/NilPointer-Software/go-firebase-remote-config/remote
 
 go 1.18
 
