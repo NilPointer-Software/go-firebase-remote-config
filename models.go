@@ -10,10 +10,33 @@ import (
 )
 
 type RemoteConfig struct {
+	client          *RemoteConfigClient
+	ETag            string                    `json:"-"`
 	Version         Version                   `json:"version"`
 	Conditions      []Condition               `json:"conditions"`
 	Parameters      map[string]Parameter      `json:"parameters"`
 	ParameterGroups map[string]ParameterGroup `json:"parameterGroups"`
+}
+
+func (rc *RemoteConfig) Refresh() error {
+	if rc.client != nil {
+		var err error
+		newConfig, err := rc.client.Get()
+		if err != nil {
+			return err
+		}
+		*rc = *newConfig
+		return nil
+	}
+	return fmt.Errorf("no client attached")
+}
+
+func (rc *RemoteConfig) Update() error {
+	if rc.client != nil {
+		_, err := rc.client.Update(rc)
+		return err
+	}
+	return fmt.Errorf("no client attached")
 }
 
 type Version struct {

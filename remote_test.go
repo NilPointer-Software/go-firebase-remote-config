@@ -14,7 +14,7 @@ func TestRemoteConfig(t *testing.T) {
 		panic(err)
 	}
 
-	raw, err := client.GetRaw()
+	raw, err := client.Get()
 	if err != nil {
 		panic(err)
 	}
