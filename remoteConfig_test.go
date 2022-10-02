@@ -1,4 +1,4 @@
-package firebaseRemoteConfig
+package remote
 
 import (
 	"context"
