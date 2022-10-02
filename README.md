@@ -1,0 +1,1 @@
+# go-firebase-remote-config
