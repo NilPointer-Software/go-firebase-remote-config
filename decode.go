@@ -127,12 +127,13 @@ func (rc *RemoteConfig) getValue(group, key string) (string, ValueType, error) {
 			return "", "", fmt.Errorf("group not found")
 		}
 		para = g.Parameters
+		group += "."
 	}
 	p, ok := para[key]
 	if ok {
 		return p.Value().GetValue(), p.ValueType, nil
 	}
-	return "", "", fmt.Errorf("parameter not found")
+	return "", "", fmt.Errorf("parameter %s%s not found", group, key)
 }
 
 func expectType(expect string, field reflect.StructField) error {
