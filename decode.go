@@ -85,37 +85,27 @@ func (rc *RemoteConfig) doDecode(val reflect.Value, group string, depth int) err
 			}
 		case ValueTypeNumber:
 			switch field.Kind() {
-			case reflect.Int,
-				reflect.Int8,
-				reflect.Int16,
-				reflect.Int32,
-				reflect.Int64,
-				reflect.Uint,
-				reflect.Uint8,
-				reflect.Uint16,
-				reflect.Uint32,
-				reflect.Uint64,
-				reflect.Float32,
-				reflect.Float64:
-				break
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+				i, err := strconv.ParseInt(value, 10, 64)
+				if err != nil {
+					return fmt.Errorf("couldn't read value for field %s. %s", fieldType.Name, err)
+				}
+				field.SetInt(i)
+			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+				u, err := strconv.ParseUint(value, 10, 64)
+				if err != nil {
+					return fmt.Errorf("couldn't read value for field %s. %s", fieldType.Name, err)
+				}
+				field.SetUint(u)
+			case reflect.Float32, reflect.Float64:
+				f, err := strconv.ParseFloat(value, 64)
+				if err != nil {
+					return fmt.Errorf("couldn't read value for field %s. %s", fieldType.Name, err)
+				}
+				field.SetFloat(f)
 			default:
 				return expectType("uint/int/float", fieldType)
 			}
-			u, err := strconv.ParseUint(value, 10, 64)
-			if err != nil {
-				i, err := strconv.ParseInt(value, 10, 64)
-				if err != nil {
-					f, err := strconv.ParseFloat(value, 64)
-					if err != nil {
-						return invalidConfigType(group, key, value, vType)
-					}
-					field.SetFloat(f)
-					break
-				}
-				field.SetInt(i)
-				break
-			}
-			field.SetUint(u)
 		case ValueTypeJSON:
 			err := json.Unmarshal([]byte(value), (interface{})(field.Pointer())) // TODO: Test
 			if err != nil {
