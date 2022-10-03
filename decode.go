@@ -40,6 +40,9 @@ func (rc *RemoteConfig) doDecode(val reflect.Value, group string, depth int) err
 				}
 			}
 		}
+		if key == "-" {
+			continue
+		}
 		field := val.Field(i)
 		if isGroup {
 			if field.Kind() != reflect.Struct {
