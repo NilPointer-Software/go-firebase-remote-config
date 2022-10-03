@@ -27,17 +27,21 @@ func (rc *RemoteConfig) doDecode(val reflect.Value, group string, depth int) err
 		key := fieldType.Name
 		if tag, ok := fieldType.Tag.Lookup("config"); ok {
 			s := strings.Split(tag, ",")
+			newKey := ""
 			if len(s) > 1 && s[1] == "group" {
-				key = s[0]
+				newKey = s[0]
 				isGroup = true
 			} else {
 				sn := strings.SplitN(s[0], ".", 2)
 				if len(sn) > 1 {
 					group = sn[0]
-					key = sn[1]
+					newKey = sn[1]
 				} else {
-					key = sn[0]
+					newKey = sn[0]
 				}
+			}
+			if newKey != "" {
+				key = newKey
 			}
 		}
 		if key == "-" {
