@@ -96,6 +96,7 @@ func (p *Parameter) Value() ParameterValue {
 		return *p.DefaultValue
 	}
 	if p.ConditionalValues != nil {
+		// TODO: Process conditionals
 		return p.ConditionalValues.Inner().Oldest().Value
 	}
 	panic("parameter has no value")
@@ -117,7 +118,7 @@ type ParameterValue struct {
 	PersonalizationValue *PersonalizationValue `json:"personalizationValue"`
 }
 
-func (dv *ParameterValue) GetValue() string {
+func (dv ParameterValue) GetValue() string {
 	if dv.Value != nil {
 		return *dv.Value
 	}

@@ -118,6 +118,8 @@ func (rcc *RemoteConfigClient) ListVersionsByPageToken(pageToken string) (*Versi
 
 // TODO: ListVersions all query
 
+// TODO: GetDefaults
+
 type request struct {
 	method string
 	call   string
@@ -164,6 +166,9 @@ func (rcc *RemoteConfigClient) doRequest(r request, output any, try ...int) (str
 		return "", err
 	}
 	req.Header.Set("User-Agent", "go-firebase-remote-config/v0")
+	if r.input != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	if r.etag != "" {
 		req.Header.Set("If-Match", r.etag)
 	}
